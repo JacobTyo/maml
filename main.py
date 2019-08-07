@@ -69,7 +69,12 @@ flags.DEFINE_bool('test_set', False, 'Set to true to test on the the test set, F
 flags.DEFINE_integer('train_update_batch_size', -1, 'number of examples used for gradient update during training (use if you want to test with a different number).')
 flags.DEFINE_float('train_update_lr', -1, 'value of inner gradient step step during training. (use if you want to test with a different value)') # 0.1 for omniglot
 
+
+
 def train(model, saver, sess, exp_string, data_generator, resume_itr=0):
+    num_samples_used = 0
+    num_funcs_used = 0
+
     SUMMARY_INTERVAL = 100
     SAVE_INTERVAL = 1000
     if FLAGS.datasource == 'sinusoid':
@@ -91,6 +96,8 @@ def train(model, saver, sess, exp_string, data_generator, resume_itr=0):
         feed_dict = {}
         if 'generate' in dir(data_generator):
             batch_x, batch_y, amp, phase = data_generator.generate()
+            num_samples_used += batch_x.shape[0] * batch_x.shape[1]
+            num_funcs_used += batch_x.shape[0]
 
             if FLAGS.baseline == 'oracle':
                 batch_x = np.concatenate([batch_x, np.zeros([batch_x.shape[0], batch_x.shape[1], 2])], 2)
@@ -158,6 +165,8 @@ def train(model, saver, sess, exp_string, data_generator, resume_itr=0):
             print('Validation results: ' + str(result[0]) + ', ' + str(result[1]))
 
     saver.save(sess, FLAGS.logdir + '/' + exp_string +  '/model' + str(itr))
+    print('{} samples were used during training.'.format(num_samples_used))
+    print('{} functions were used during training'.format(num_funcs_used))
 
 # calculated for omniglot
 NUM_TEST_POINTS = 600
