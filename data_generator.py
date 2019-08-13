@@ -14,21 +14,13 @@ class DataGenerator(object):
     Data Generator capable of generating batches of sinusoid or Omniglot data.
     A "class" is considered a class of omniglot digits or a particular sinusoid function.
     """
-    def __init__(self, num_samples_per_class, batch_size, config={}, num_funcs=10000):
+    def __init__(self, num_samples_per_class, batch_size, config={}, num_funcs=10000, inf_data=True, inf_x=True):
         """
         Args:
             num_samples_per_class: num samples to generate per class in one batch
             batch_size: size of meta batch size (e.g. number of functions)
         """
-        # make the size of the dataset static, ensure that we have an independent sample of x per function
-        # so that it is apples-to-apples with our work
-        self.x = np.asarray([])
-        self.amps = np.asarray([])
-        self.phases = np.asarray([])
-        for i in range(num_funcs):
-            self.x = np.concatenate((self.x, np.random.uniform(low=-5, high=5, size=num_samples_per_class)), axis=1)
-            self.amps = np.concatenate((self.amps, np.random.uniform(low=0.1, high=5, size=1)), axis=1)
-            self.phases = np.concatenate((self.amps, np.random.uniform(low=0, high=np.pi, size=1)), axis=1)
+        # normal maml
         self.batch_size = batch_size
         self.num_samples_per_class = num_samples_per_class
         self.num_classes = 1  # by default 1 (only relevant for classification problems)
@@ -86,7 +78,20 @@ class DataGenerator(object):
             self.rotations = config.get('rotations', [0])
         else:
             raise ValueError('Unrecognized data source')
-
+        # make the size of the dataset static, ensure that we have an independent sample of x per function
+        # so that it is apples-to-apples with our work
+        self.inf_data = inf_data
+        self.inf_x = inf_x
+        if not self.inf_data:
+            # maybe make self.x structure [func_num][xs]
+            self.x = []
+            self.amps = np.asarray([])
+            self.phases = np.asarray([])
+            for i in range(num_funcs):
+                self.x.append(np.random.uniform(low=-5, high=5, size=num_samples_per_class).tolist())
+                self.amps = np.concatenate((self.amps, np.random.uniform(low=0.1, high=5, size=1)), axis=0)
+                self.phases = np.concatenate((self.amps, np.random.uniform(low=0, high=np.pi, size=1)), axis=0)
+            self.x = np.asarray(self.x)
 
     def make_data_tensor(self, train=True):
         if train:
@@ -176,15 +181,25 @@ class DataGenerator(object):
         1) sample self.batch_size number of phase's amps
         2) build output
         '''
-        idxs = np.random.randint(low=0, high=len(self.amps), size=self.batch_size)
-        # amp = np.random.uniform(self.amp_range[0], self.amp_range[1], [self.batch_size])
-        amp = self.amps[idxs]
-        # phase = np.random.uniform(self.phase_range[0], self.phase_range[1], [self.batch_size])
-        phase = self.phases[idxs]
-        outputs = np.zeros([self.batch_size, self.num_samples_per_class, self.dim_output])
+        if self.inf_data:
+            # this is normal maml
+            amp = np.random.uniform(self.amp_range[0], self.amp_range[1], [self.batch_size])
+            phase = np.random.uniform(self.phase_range[0], self.phase_range[1], [self.batch_size])
+        else:
+            # this is modified to use finite dataset
+            idxs = np.random.randint(low=0, high=len(self.amps), size=self.batch_size)
+            amp = self.amps[idxs]
+            phase = self.phases[idxs]
+
         init_inputs = np.zeros([self.batch_size, self.num_samples_per_class, self.dim_input])
+        outputs = np.zeros([self.batch_size, self.num_samples_per_class, self.dim_output])
+
         for func in range(self.batch_size):
-            init_inputs[func] = np.random.uniform(self.input_range[0], self.input_range[1], [self.num_samples_per_class, 1])
+            if self.inf_x:
+                init_inputs[func] = np.random.uniform(self.input_range[0], self.input_range[1], [self.num_samples_per_class, 1])
+            else:
+                tmp = self.x[idxs[func]]
+                init_inputs[func] = np.asarray(tmp).reshape(-1, 1)
             if input_idx is not None:
                 init_inputs[:,input_idx:,0] = np.linspace(self.input_range[0], self.input_range[1], num=self.num_samples_per_class-input_idx, retstep=False)
             outputs[func] = amp[func] * np.sin(init_inputs[func]-phase[func])
