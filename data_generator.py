@@ -14,12 +14,21 @@ class DataGenerator(object):
     Data Generator capable of generating batches of sinusoid or Omniglot data.
     A "class" is considered a class of omniglot digits or a particular sinusoid function.
     """
-    def __init__(self, num_samples_per_class, batch_size, config={}):
+    def __init__(self, num_samples_per_class, batch_size, config={}, num_funcs=10000):
         """
         Args:
             num_samples_per_class: num samples to generate per class in one batch
             batch_size: size of meta batch size (e.g. number of functions)
         """
+        # make the size of the dataset static, ensure that we have an independent sample of x per function
+        # so that it is apples-to-apples with our work
+        self.x = np.asarray([])
+        self.amps = np.asarray([])
+        self.phases = np.asarray([])
+        for i in range(num_funcs):
+            self.x = np.concatenate((self.x, np.random.uniform(low=-5, high=5, size=num_samples_per_class)), axis=1)
+            self.amps = np.concatenate((self.amps, np.random.uniform(low=0.1, high=5, size=1)), axis=1)
+            self.phases = np.concatenate((self.amps, np.random.uniform(low=0, high=np.pi, size=1)), axis=1)
         self.batch_size = batch_size
         self.num_samples_per_class = num_samples_per_class
         self.num_classes = 1  # by default 1 (only relevant for classification problems)
@@ -162,8 +171,16 @@ class DataGenerator(object):
     def generate_sinusoid_batch(self, train=True, input_idx=None):
         # Note train arg is not used (but it is used for omniglot method.
         # input_idx is used during qualitative testing --the number of examples used for the grad update
-        amp = np.random.uniform(self.amp_range[0], self.amp_range[1], [self.batch_size])
-        phase = np.random.uniform(self.phase_range[0], self.phase_range[1], [self.batch_size])
+        '''
+        modified to use static dataset via x's
+        1) sample self.batch_size number of phase's amps
+        2) build output
+        '''
+        idxs = np.random.randint(low=0, high=len(self.amps), size=self.batch_size)
+        # amp = np.random.uniform(self.amp_range[0], self.amp_range[1], [self.batch_size])
+        amp = self.amps[idxs]
+        # phase = np.random.uniform(self.phase_range[0], self.phase_range[1], [self.batch_size])
+        phase = self.phases[idxs]
         outputs = np.zeros([self.batch_size, self.num_samples_per_class, self.dim_output])
         init_inputs = np.zeros([self.batch_size, self.num_samples_per_class, self.dim_input])
         for func in range(self.batch_size):
