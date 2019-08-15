@@ -174,8 +174,10 @@ NUM_TEST_POINTS = 600
 def test(model, saver, sess, exp_string, data_generator, test_num_updates=None):
     num_classes = data_generator.num_classes # for classification, 1 otherwise
 
-    np.random.seed(1)
-    random.seed(1)
+    #np.random.seed(1)
+    #random.seed(1)
+    np.random.seed(18)
+    random.seed(18)
 
     metaval_accuracies = []
 
@@ -274,7 +276,8 @@ def main():
         num_classes = data_generator.num_classes
 
         if FLAGS.train: # only construct training model if needed
-            random.seed(5)
+            #random.seed(5)
+            random.seed(58)
             image_tensor, label_tensor = data_generator.make_data_tensor()
             inputa = tf.slice(image_tensor, [0,0,0], [-1,num_classes*FLAGS.update_batch_size, -1])
             inputb = tf.slice(image_tensor, [0,num_classes*FLAGS.update_batch_size, 0], [-1,-1,-1])
@@ -282,7 +285,8 @@ def main():
             labelb = tf.slice(label_tensor, [0,num_classes*FLAGS.update_batch_size, 0], [-1,-1,-1])
             input_tensors = {'inputa': inputa, 'inputb': inputb, 'labela': labela, 'labelb': labelb}
 
-        random.seed(6)
+        # random.seed(6)
+        random.seed(68)
         image_tensor, label_tensor = data_generator.make_data_tensor(train=False)
         inputa = tf.slice(image_tensor, [0,0,0], [-1,num_classes*FLAGS.update_batch_size, -1])
         inputb = tf.slice(image_tensor, [0,num_classes*FLAGS.update_batch_size, 0], [-1,-1,-1])

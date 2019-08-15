@@ -14,7 +14,7 @@ class DataGenerator(object):
     Data Generator capable of generating batches of sinusoid or Omniglot data.
     A "class" is considered a class of omniglot digits or a particular sinusoid function.
     """
-    def __init__(self, num_samples_per_class, batch_size, config={}, num_funcs=10000, inf_data=True, inf_x=True):
+    def __init__(self, num_samples_per_class, batch_size, config={}, num_funcs=10000, inf_data=False, inf_x=False):
         """
         Args:
             num_samples_per_class: num samples to generate per class in one batch
