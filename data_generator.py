@@ -78,20 +78,24 @@ class DataGenerator(object):
             self.rotations = config.get('rotations', [0])
         else:
             raise ValueError('Unrecognized data source')
+
         # make the size of the dataset static, ensure that we have an independent sample of x per function
         # so that it is apples-to-apples with our work
         self.inf_data = inf_data
         self.inf_x = inf_x
         if not self.inf_data:
             # maybe make self.x structure [func_num][xs]
+            print('generating {} datapoints'.format(num_funcs * num_samples_per_class + 2 * num_funcs))
             self.x = []
-            self.amps = np.asarray([])
-            self.phases = np.asarray([])
+            self.amps = []
+            self.phases = []
             for i in range(num_funcs):
                 self.x.append(np.random.uniform(low=-5, high=5, size=num_samples_per_class).tolist())
-                self.amps = np.concatenate((self.amps, np.random.uniform(low=0.1, high=5, size=1)), axis=0)
-                self.phases = np.concatenate((self.amps, np.random.uniform(low=0, high=np.pi, size=1)), axis=0)
+                self.amps.extend(np.random.uniform(low=0.1, high=5, size=1).tolist())
+                self.phases.extend(np.random.uniform(low=0, high=np.pi, size=1).tolist())
             self.x = np.asarray(self.x)
+            self.amps = np.asarray(self.amps)
+            self.phases = np.asarray(self.phases)
 
     def make_data_tensor(self, train=True):
         if train:
@@ -187,6 +191,7 @@ class DataGenerator(object):
             phase = np.random.uniform(self.phase_range[0], self.phase_range[1], [self.batch_size])
         else:
             # this is modified to use finite dataset
+            #$ this shouldn't be random, but is good enough for now
             idxs = np.random.randint(low=0, high=len(self.amps), size=self.batch_size)
             amp = self.amps[idxs]
             phase = self.phases[idxs]

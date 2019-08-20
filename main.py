@@ -30,6 +30,7 @@ import numpy as np
 import pickle
 import random
 import tensorflow as tf
+import os
 
 from data_generator import DataGenerator
 from maml import MAML
@@ -68,6 +69,16 @@ flags.DEFINE_integer('test_iter', -1, 'iteration to load model (-1 for latest mo
 flags.DEFINE_bool('test_set', False, 'Set to true to test on the the test set, False for the validation set.')
 flags.DEFINE_integer('train_update_batch_size', -1, 'number of examples used for gradient update during training (use if you want to test with a different number).')
 flags.DEFINE_float('train_update_lr', -1, 'value of inner gradient step step during training. (use if you want to test with a different value)') # 0.1 for omniglot
+
+flags.DEFINE_integer('seed', 0, 'the random seed to use')
+flags.DEFINE_integer('num_funcs', 10000, 'the number of functions to use for training')
+flags.DEFINE_bool('inf_data', True, 'should infinite trining data be used?')
+flags.DEFINE_bool('inf_x', True, 'should new x points be generated for each function?')
+
+prelosses_saveme = []
+postlosses_saveme = []
+meta_val_means = []
+meta_val_stds = []
 
 
 
@@ -135,6 +146,20 @@ def train(model, saver, sess, exp_string, data_generator, resume_itr=0):
             else:
                 print_str = 'Iteration ' + str(itr - FLAGS.pretrain_iterations)
             print_str += ': ' + str(np.mean(prelosses)) + ', ' + str(np.mean(postlosses))
+
+            # prelosses_saveme.extend(prelosses)
+            # postlosses_saveme.extend(postlosses)
+            # print('prelosses===================================================')
+            # print(prelosses)
+            # print('len: {}'.format(len(prelosses_saveme)))
+            # print('end prelosses===================================================')
+            # print('postlosses===================================================')
+            # print(postlosses)
+            # print('len: {}'.format(len(postlosses_saveme)))
+            # print('end postlosses===================================================')
+            # np.save(os.path.join(FLAGS.logdir, 'prelosses'), prelosses_saveme)
+            # np.save(os.path.join(FLAGS.logdir, 'postlosses'), postlosses_saveme)
+
             print(print_str)
             prelosses, postlosses = [], []
 
@@ -176,8 +201,8 @@ def test(model, saver, sess, exp_string, data_generator, test_num_updates=None):
 
     #np.random.seed(1)
     #random.seed(1)
-    np.random.seed(18)
-    random.seed(18)
+    np.random.seed(FLAGS.seed)
+    random.seed(FLAGS.seed)
 
     metaval_accuracies = []
 
@@ -210,6 +235,21 @@ def test(model, saver, sess, exp_string, data_generator, test_num_updates=None):
     means = np.mean(metaval_accuracies, 0)
     stds = np.std(metaval_accuracies, 0)
     ci95 = 1.96*stds/np.sqrt(NUM_TEST_POINTS)
+
+    # meta_val_means.append(means)
+    # meta_val_stds.append(stds)
+    # print('means========================================================')
+    # print(means)
+    # print('len: {}'.format(len(meta_val_means)))
+    # print('end means========================================================')
+    # print('stds========================================================')
+    # print(stds)
+    # print('len: {}'.format(len(meta_val_stds)))
+    # print('stds means========================================================')
+
+    np.save(os.path.join(FLAGS.logdir, 'meta_val_means'), meta_val_means)
+    np.save(os.path.join(FLAGS.logdir, 'meta_val_stds'), meta_val_stds)
+    print('saving meta_val data. mean {}, std {}'.format(means, stds))
 
     print('Mean validation accuracy/loss, stddev, and confidence intervals')
     print((means, stds, ci95))
@@ -246,14 +286,16 @@ def main():
         FLAGS.meta_batch_size = 1
 
     if FLAGS.datasource == 'sinusoid':
-        data_generator = DataGenerator(FLAGS.update_batch_size*2, FLAGS.meta_batch_size)
+        print('using {} functions'.format(FLAGS.num_funcs))
+        data_generator = DataGenerator(FLAGS.update_batch_size*2, FLAGS.meta_batch_size, num_funcs=FLAGS.num_funcs,
+                                       inf_data=FLAGS.inf_data, inf_x=FLAGS.inf_x)
     else:
         if FLAGS.metatrain_iterations == 0 and FLAGS.datasource == 'miniimagenet':
             assert FLAGS.meta_batch_size == 1
             assert FLAGS.update_batch_size == 1
             data_generator = DataGenerator(1, FLAGS.meta_batch_size)  # only use one datapoint,
         else:
-            if FLAGS.datasource == 'miniimagenet': # TODO - use 15 val examples for imagenet?
+            if FLAGS.datasource == 'miniimagenet':  # TODO - use 15 val examples for imagenet?
                 if FLAGS.train:
                     data_generator = DataGenerator(FLAGS.update_batch_size+15, FLAGS.meta_batch_size)  # only use one datapoint for testing to save memory
                 else:
@@ -277,7 +319,7 @@ def main():
 
         if FLAGS.train: # only construct training model if needed
             #random.seed(5)
-            random.seed(58)
+            random.seed(FLAGS.seed + 1)
             image_tensor, label_tensor = data_generator.make_data_tensor()
             inputa = tf.slice(image_tensor, [0,0,0], [-1,num_classes*FLAGS.update_batch_size, -1])
             inputb = tf.slice(image_tensor, [0,num_classes*FLAGS.update_batch_size, 0], [-1,-1,-1])
@@ -286,7 +328,7 @@ def main():
             input_tensors = {'inputa': inputa, 'inputb': inputb, 'labela': labela, 'labelb': labelb}
 
         # random.seed(6)
-        random.seed(68)
+        random.seed(FLAGS.seed+2)
         image_tensor, label_tensor = data_generator.make_data_tensor(train=False)
         inputa = tf.slice(image_tensor, [0,0,0], [-1,num_classes*FLAGS.update_batch_size, -1])
         inputb = tf.slice(image_tensor, [0,num_classes*FLAGS.update_batch_size, 0], [-1,-1,-1])
